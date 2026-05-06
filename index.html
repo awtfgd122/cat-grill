@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>고양이 삼겹살 🐱🔥</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #1a1a1a;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: sans-serif;
+      color: white;
+    }
+    canvas {
+      border: 2px solid #ff6600;
+      border-radius: 12px;
+    }
+    #controls {
+      margin-top: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+    }
+    input[type=range] { width: 160px; accent-color: #ff6600; }
+  </style>
+</head>
+<body>
+  <canvas id="game" width="480" height="540"></canvas>
+  <div id="controls">
+    🔥 불 세기
+    <input type="range" id="fire" min="1" max="100" value="30">
+    <span id="fireVal">30</span>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const fireSlider = document.getElementById('fire');
+    const fireValEl = document.getElementById('fireVal');
+
+    let fireLevel = 30;
+    let cookA = 0;   // 앞면 익음 0~100
+    let cookB = 0;   // 뒷면 익음 0~100
+    let side = 'A';  // 현재 보이는 면
+    let gameOver = false;
+    let result = '';
+    let catFace = '🐱';
+
+    fireSlider.addEventListener('input', e => {
+      fireLevel = parseInt(e.target.value);
+      fireValEl.textContent = fireLevel;
+    });
+
+    // 삼겹살 클릭하면 뒤집기
+    canvas.addEventListener('click', e => {
+      if (gameOver) { reset(); return; }
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      if (mx > 150 && mx < 330 && my > 320 && my < 420) {
+        side = side === 'A' ? 'B' : 'A';
+        catFace = '😸';
+        setTimeout(() => catFace = '🐱', 500);
+      }
+    });
+
+    function reset() {
+      cookA = 0; cookB = 0;
+      side = 'A';
+      gameOver = false;
+      result = '';
+      catFace = '🐱';
+    }
+
+    function getMeatColor(cook) {
+      if (cook < 30)  return '#ffaaaa';  // 생고기
+      if (cook < 70)  return '#cc4400';  // 익는 중
+      if (cook < 90)  return '#8B2500';  // 완벽
+      return '#222';                      // 탐
+    }
+
+    function getStatusText(cook) {
+      if (cook < 30)  return '생고기 😶';
+      if (cook < 70)  return '익는 중 👀';
+      if (cook < 90)  return '완벽해옹! 😻';
+      return '탔다옹 😿';
+    }
+
+    function update() {
+      if (gameOver) return;
+
+      const speed = fireLevel / 4000;
+      if (side === 'A') cookA += speed;
+      else cookB += speed;
+
+      // 한쪽이라도 타면 게임오버
+      if (cookA >= 100 || cookB >= 100) {
+        gameOver = true;
+        const perfectA = cookA >= 70 && cookA < 90;
+        const perfectB = cookB >= 70 && cookB < 90;
+        if (perfectA && perfectB) {
+          result = '🏆 완벽하게 구웠다옹!';
+          catFace = '😻';
+        } else if (cookA >= 100 || cookB >= 100) {
+          result = '💀 탔다옹... 다시해봐옹';
+          catFace = '😿';
+        } else {
+          result = '👍 그럭저럭 구웠다옹';
+          catFace = '😺';
+        }
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, 480, 540);
+
+      // 배경
+      ctx.fillStyle = '#2a1a0a';
+      ctx.fillRect(0, 0, 480, 540);
+
+      // 제목
+      ctx.fillStyle = 'white';
+      ctx.font = 'bold 24px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('🐱 고양이 삼겹살', 240, 44);
+
+      // 고양이
+      ctx.font = '90px serif';
+      ctx.fillText(catFace, 240, 180);
+
+      // 프라이팬
+      ctx.font = '140px serif';
+      ctx.fillText('🍳', 240, 420);
+
+      // 삼겹살 (색깔 변하는 사각형)
+      const currentCook = side === 'A' ? cookA : cookB;
+      ctx.fillStyle = getMeatColor(currentCook);
+      ctx.beginPath();
+      ctx.roundRect(150, 325, 180, 70, 12);
+      ctx.fill();
+
+      // 삼겹살 줄무늬
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      for (let i = 0; i < 3; i++) {
+        ctx.fillRect(155, 335 + i * 18, 170, 6);
+      }
+
+      // 익음 상태 텍스트
+      ctx.fillStyle = 'white';
+      ctx.font = '14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(getStatusText(currentCook), 240, 420);
+
+      // 익음 게이지 — 앞면
+      drawGauge(60, 470, cookA, 'A면');
+      // 익음 게이지 — 뒷면
+      drawGauge(260, 470, cookB, 'B면');
+
+      // 현재 보는 면 표시
+      ctx.fillStyle = '#ff9900';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.fillText(`지금 보이는 면: ${side}면  |  클릭하면 뒤집기!`, 240, 310);
+
+      // 게임오버
+      if (gameOver) {
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        ctx.fillRect(0, 0, 480, 540);
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 28px sans-serif';
+        ctx.fillText(result, 240, 260);
+        ctx.font = '16px sans-serif';
+        ctx.fillStyle = '#aaa';
+        ctx.fillText('클릭하면 다시 시작', 240, 300);
+      }
+    }
+
+    function drawGauge(x, y, value, label) {
+      const w = 160, h = 18;
+      ctx.fillStyle = '#444';
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, 6);
+      ctx.fill();
+
+      const ratio = Math.min(value / 100, 1);
+      const col = value < 70 ? '#ff6600' : value < 90 ? '#00cc44' : '#ff2200';
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.roundRect(x, y, w * ratio, h, 6);
+      ctx.fill();
+
+      ctx.fillStyle = 'white';
+      ctx.font = '12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${label} ${Math.floor(value)}%`, x + w / 2, y + 13);
+    }
+
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>
